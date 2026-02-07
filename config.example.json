@@ -1,0 +1,26 @@
+{
+  "common": {
+    "pfID": 2,
+    "version": "8.9.7",
+    "bundleIdentifier": "com.bairimeng.snake.13",
+    "deviceID": "你的设备ID"
+  },
+  "accounts": [
+    {
+      "note": "账号备注",
+      "authKey": "抓包获取的authKey",
+      "roleID": "你的RoleID",
+      "openID": "抓包获取的openID",
+      "openKey": "抓包获取的openKey",
+      "lastLoginTimeStamp": 1770021088,
+      "sign": "抓包获取的sign",
+      "accountName": "角色名",
+      "targets": [
+        {
+          "id": "要监控的目标ID",
+          "name": "目标备注名"
+        }
+      ]
+    }
+  ]
+}

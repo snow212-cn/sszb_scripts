@@ -1,0 +1,18 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Project specific
+config.json
+monitor_state_*.json
+daily_records_*.csv
+.auth_failed_mark_*
+*.log
+.vscode/
+*.ipynb
+*.code-workspace
