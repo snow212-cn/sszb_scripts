@@ -1,9 +1,9 @@
-# 蛇蛇争霸 监控与任务助手
+# 蛇蛇争霸 监控与日常任务脚本
 
 ## 功能
 
 - **好友状态监控** (`sszb_monitor.py`)：监控好友在线/离线状态，统计每日自由战局数，状态变更时推送通知。
-- **每日任务** (`daily_tasks.py`)：每日签到、摇钱树、免费扭蛋。
+- **每日任务** (`daily_tasks.py`)：每日签到、摇钱树、免费扭蛋、免费圣衣商城。
 - **认证管理** (`auth_manager.py`)：登录凭证被服务器销毁后，`authKey` 过期错误(-73)，能利用 `openKey` 重新登录。
 
 ## 配置 (config.json)
@@ -112,11 +112,10 @@ msg_id=30001&msg={"openID":"79C08456AB664267ED5660282496C***","openKey":"3A62DB2
 | 参数 | 说明 | 来源 |
 |---|---|---|
 | `openID` | 账号唯一标识 | 请求 `msg` |
-| `openKey` | 登录凭据，用于自动刷新 `authKey` | 请求 `msg` |
-| `sign` | 签名 | 请求 `msg` |
+| `openKey`, `sign` | qq大厅登录凭证、签名，用于自动刷新游戏 `authKey` | 请求 `msg` |
 | `lastLoginTimeStamp` | 上次登录时间戳 | 请求 `msg` |
 | `roleID` | 角色 ID | 响应 |
-| `authKey` | 认证密钥 (可自动刷新) | 响应 |
+| `authKey` | 游戏登录凭证 (经常需要刷新) | 响应 |
 | `accountName` | 角色名 (可选) | 响应 |
 
 ### 公共参数（填入 `common` 对象）

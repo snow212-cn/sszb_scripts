@@ -26,14 +26,14 @@ FREE_BATTLE_MODE_ID = 0
 def send_notification(title, content):
     """通过青龙面板发送通知"""
     try:
-        if 'QLAPI' in globals():
+        # if 'QLAPI' in globals():
             print(f"正在发送通知: {title}")
             print(QLAPI.systemNotify({"title": title, "content": content}))
-        else:
-             # 如果本地环境没有 QLAPI，也可以调用 auth_manager 的 send_notification，或者简单打印
-             print(f"\n[NOTIFICATION] {title}\n{content}\n")
+        # else:
+            # 如果本地环境没有 QLAPI，也可以调用 auth_manager 的 send_notification，或者简单打印
     except Exception as e:
         print(f"发送通知失败: {e}")
+        print(f"\n[NOTIFICATION] {title}\n{content}\n")
 
 def check_response(data, account):
     """
@@ -62,12 +62,12 @@ def view_target(target_id, account):
     if not data or not check_response(data, account):
         return {}
     
-    target_keys = ['publicInfo', 'publicInfos', 'gold', 'diamonds', 'killCount', 'maxContinueKill', 'championCount', 'historyScore',
+    target_keys = ['publicInfo', 'gold', 'diamonds', 'killCount', 'maxContinueKill', 'championCount', 'historyScore',
                    'goldNum', 'silverNum', 'copperNum', 'bestOverall', 'bestOverallProbability', 'todaySpaceVisitorNum',
                    'teamplayWinningTimes', 'teamplayWinningProbability', 'teamplayBestTimes', 'teamplayBestProbability']
     return {k: data[k] for k in data if k in target_keys}
 
-def get_state_now(account, followType=3, startID=1, endID=10):
+def get_state_now(account, followType=3, startID=1, endID=20):
     """
     获取关注列表/好友列表的状态
     
@@ -85,7 +85,7 @@ def get_state_now(account, followType=3, startID=1, endID=10):
         "followType": followType,
         "startID": startID,
         "endID": endID,
-        "onlineFirst": False
+        "onlineFirst": True
     })
     
     data = make_request(30014, msg_data, account)
@@ -120,22 +120,20 @@ def format_target_detail(detail):
     res = []
     res.append(f"【今日目标情况】")
     res.append(f"- 今日空间访客: {detail.get('todaySpaceVisitorNum', 0)}")
-    res.append(f"- 今日击杀总数: {detail.get('killCount', 0)}")
-    res.append(f"- 最高连杀记录: {detail.get('maxContinueKill', 0)}")
-    res.append(f"- 历史最高得分: {detail.get('historyScore', 0)}")
-    
-    res.append(f"\n【账号资产】")
+    res.append(f"【对战汇总】")
+    res.append(f"- 段位: {detail['publicInfo'].get('grade', 0)}")
+    res.append(f"- 击杀总数: {detail.get('killCount', 0)}")
+    res.append(f"- 最高连杀: {detail.get('maxContinueKill', 0)}")
+    res.append(f"- 全场最佳数: {detail.get('bestOverall', 0)} (胜率: {detail.get('bestOverallProbability', 0)}%)")
+    res.append(f"- 团战胜利次数: {detail.get('teamplayWinningTimes', 0)} (胜率: {detail.get('teamplayWinningProbability', 0)}%)")
+    res.append(f"【账号资产】")
     res.append(f"- 金币: {detail.get('gold', 0)} | 钻石: {detail.get('diamonds', 0)}")
     res.append(f"- 奖杯: 🏆{detail.get('goldNum', 0)} 🥈{detail.get('silverNum', 0)} 🥉{detail.get('copperNum', 0)}")
-    
-    res.append(f"\n【对战汇总】")
-    res.append(f"- 最终表现评分: {detail.get('bestOverall', 0)} (胜率: {detail.get('bestOverallProbability', 0)}%)")
-    res.append(f"- 团战胜利次数: {detail.get('teamplayWinningTimes', 0)} (胜率: {detail.get('teamplayWinningProbability', 0)}%)")
     
     return "\n".join(res)
 
 def present(data, file=sys.stdout):
-    """呈现json数据"""
+    """呈现用户列表json数据"""
     if not data or 'roleID' not in data:
         return
 
@@ -144,7 +142,7 @@ def present(data, file=sys.stdout):
             return "无"
         return time.strftime('%Y-%m-%d', time.localtime(timestamp))
 
-    print("=" * 60, f"用户列表总览 (共 {len(data['roleID'])} 人)", "=" * 60, sep='\n', file=file)
+    print("=" * 35, f"用户列表总览 (共 {len(data['roleID'])} 人)", "=" * 35, sep='\n', file=file)
 
     for i in range(len(data['roleID'])):
         pid = data['roleID'][i]
@@ -171,7 +169,7 @@ def present(data, file=sys.stdout):
         print(f"    账号: Lv.{lvl_info['level']} {exp_str} | VIP至: {vip_date} | Grade: {p_info['grade']}", file=file)
         print(f"    状态: {status_desc} | 游戏模式: {data['gameMode'][i]}", file=file)
         print(f"    动态: {mood_content}{media_info}", file=file)
-        print("-" * 60, file=file)
+        print("-" * 35, file=file)
 
 def save_daily_record(target_data, daily_count, record_file):
     """保存每日统计记录到CSV"""
@@ -280,15 +278,15 @@ def main():
             print(f"账号 {note} 配置缺失 authKey 或 roleID，跳过。")
             continue
         
+        if not targets:
+            print(f"账号 {note} 未配置监控目标。")
+            continue
+
         try:
             # 获取当前好友列表/状态 (make_request 会自动处理 -73 并重连)
             data = get_state_now(account)
             if not data:
                 print(f"账号 {note} 获取数据为空，跳过。")
-                continue
-
-            if not targets:
-                print(f"账号 {note} 未配置监控目标。")
                 continue
 
             for target in targets:
@@ -298,7 +296,6 @@ def main():
                 if not target_id:
                     print(f"  目标配置缺失 ID，跳过。")
                     continue
-                
                 print(f"  > 正在检查目标: {target_name} (ID: {target_id})")
 
                 target_idx = -1
@@ -310,7 +307,7 @@ def main():
                             target_idx = i
                             break
                 
-                # 初始化当前状态 (即使不在前10列表)
+                # 初始化当前状态 (即使不在列表)
                 current_status_code = 0
                 current_mode = -1
                 current_status_desc = "离线(未在列表)"
@@ -320,14 +317,13 @@ def main():
                     current_mode = data['gameMode'][target_idx]
                     current_status_desc = data['statusDesc'][target_idx]
                 else:
-                    print(f"    未在列表(前10)中找到目标: {target_name}，视为离线。")
+                    print(f"    未在列表中找到目标: {target_name}。")
 
-                state_file = os.path.join(os.path.dirname(__file__), f'monitor_state_{roleID}_{target_id}.json')
-                record_file = os.path.join(os.path.dirname(__file__), f'daily_records_{roleID}_{target_id}.csv')
+                state_file = os.path.join(os.path.dirname(__file__), f'monitor_state_{target_id}.json')
+                record_file = os.path.join(os.path.dirname(__file__), f'monitor_daily_records_{target_id}.csv')
 
                 try:
                     is_online_now = current_status_code > 0
-                    
                     state = load_state(state_file)
                     today_str = datetime.date.today().isoformat()
                     
@@ -343,11 +339,12 @@ def main():
                     was_online = state.get('last_status', 0) > 0
                     title = ""
                     msg = f"账号: {note}\n目标: {target_name}\n今日已玩自由战: {state['daily_count']} 局\n"
+                    target_detail = {}
                     
                     if is_online_now and not was_online:
-                        title = f"[{target_name}] 上线了！状态: {current_status_desc}"
+                        title = f"你关注的 [{target_name}] 上线了！状态: {current_status_desc}"
                     elif not is_online_now and was_online:
-                        title = f"[{target_name}] 下线了。最终状态: {current_status_desc}"
+                        title = f"你关注的 [{target_name}] 下线了！最终状态: {current_status_desc}"
                         try:
                             target_detail = view_target(target_id, account)
                             save_daily_record(target_detail, state['daily_count'], record_file)
@@ -355,25 +352,21 @@ def main():
                             print(f"    保存记录时出错: {e}")
 
                     if title:
-                        target_detail = {}
-                        try:
+                        if is_online_now:
                             target_detail = view_target(target_id, account)
-                        except:
-                            pass
                         
                         # 格式化详细情况
                         msg += "\n" + format_target_detail(target_detail) + "\n"
-                        
                         buf = io.StringIO()
                         present(data, file=buf)
-                        msg += "\n" + "-"*30 + "\n好友列表概况:\n" + buf.getvalue()
+                        msg += "\n" + "-"*20 + "\n好友列表概况:\n" + buf.getvalue()
                         
                         send_notification(title, msg)
                     
                     state['last_status'] = current_status_code
                     state['last_update_str'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     save_state(state, state_file)
-                    print(f"    [{target_name}] 检查完毕。状态: {'在线' if is_online_now else '离线'}, 模式: {current_mode}\n{msg}")
+                    print(f"    [{target_name}]检查完毕。状态: {'在线' if is_online_now else '离线'}, 模式: {current_mode}\n{msg}")
                     
                 except FatalAuthError:
                     raise FatalAuthError # 继续向上抛出，中断整个账号
