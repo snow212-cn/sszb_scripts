@@ -16,3 +16,4 @@ daily_records_*.csv
 .vscode/
 *.ipynb
 *.code-workspace
+其它*.md

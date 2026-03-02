@@ -125,7 +125,7 @@ def format_target_detail(detail):
     res.append(f"- 击杀总数: {detail.get('killCount', 0)}")
     res.append(f"- 最高连杀: {detail.get('maxContinueKill', 0)}")
     res.append(f"- 全场最佳数: {detail.get('bestOverall', 0)} (胜率: {detail.get('bestOverallProbability', 0)}%)")
-    res.append(f"- 团战胜利次数: {detail.get('teamplayWinningTimes', 0)} (胜率: {detail.get('teamplayWinningProbability', 0)}%)")
+    res.append(f"- 团战最佳数: {detail.get('teamplayBestTimes', 0)} (胜率: {detail.get('teamplayWinningProbability', 0)}%)")
     res.append(f"【账号资产】")
     res.append(f"- 金币: {detail.get('gold', 0)} | 钻石: {detail.get('diamonds', 0)}")
     res.append(f"- 奖杯: 🏆{detail.get('goldNum', 0)} 🥈{detail.get('silverNum', 0)} 🥉{detail.get('copperNum', 0)}")
@@ -176,7 +176,15 @@ def save_daily_record(target_data, daily_count, record_file):
     if not target_data:
         return
 
-    best_overall = target_data.get('bestOverall', 0)
+    def to_int(value, default=0):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return default
+
+    best_overall = to_int(target_data.get('bestOverall', 0), 0)
+    teamplay_best_times = to_int(target_data.get('teamplayBestTimes', 0), 0)
+    free_battle_best_times = max(best_overall - teamplay_best_times, 0)
     kill_count = target_data.get('killCount', 0)
     grade = 0
     if 'publicInfos' in target_data:
@@ -187,18 +195,23 @@ def save_daily_record(target_data, daily_count, record_file):
             grade = p_infos.get('grade', 0)
     elif 'publicInfo' in target_data:
         grade = target_data['publicInfo'].get('grade', 0)
-        
+
     now = datetime.datetime.now()
     date_str = now.strftime('%Y-%m-%d')
     time_str = now.strftime('%H:%M:%S')
-    
-    header = ['Date', 'Time', 'BestOverall', 'KillCount', 'Grade', 'DailyFreeBattleCount']
+
+    # 保留原有字段并新增 FreeBattleBestTimes（自由战全场最佳数）
+    header = ['Date', 'Time', 'BestOverall', 'FreeBattleBestTimes', 'KillCount', 'Grade', 'DailyFreeBattleCount']
     rows = []
     if os.path.exists(record_file):
         try:
             with open(record_file, 'r', newline='', encoding='utf-8-sig') as f:
                 reader = csv.DictReader(f)
                 rows = list(reader)
+
+            # 兼容旧文件：补齐新增列，历史数据保持原值不变
+            for row in rows:
+                row.setdefault('FreeBattleBestTimes', '')
         except Exception as e:
             print(f"读取旧记录失败: {e}")
 
@@ -206,6 +219,7 @@ def save_daily_record(target_data, daily_count, record_file):
         'Date': date_str,
         'Time': time_str,
         'BestOverall': str(best_overall),
+        'FreeBattleBestTimes': str(free_battle_best_times),
         'KillCount': str(kill_count),
         'Grade': str(grade),
         'DailyFreeBattleCount': str(daily_count)
