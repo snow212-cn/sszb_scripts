@@ -112,8 +112,8 @@ msg_id=30001&msg={"openID":"79C08456AB664267ED5660282496C***","openKey":"3A62DB2
 | 参数 | 说明 | 来源 |
 |---|---|---|
 | `openID` | 账号唯一标识 | 请求 `msg` |
-| `openKey`, `sign` | qq大厅登录凭证、签名，用于自动刷新游戏 `authKey` | 请求 `msg` |
-| `lastLoginTimeStamp` | 上次登录时间戳 | 请求 `msg` |
+| `openKey`, `sign` | qq大厅登录凭证、签名，用于自动刷新游戏 `authKey` | 响应 |
+| `lastLoginTimeStamp` | 上次登录时间戳 | 响应 |
 | `roleID` | 角色 ID | 响应 |
 | `authKey` | 游戏登录凭证 (经常需要刷新) | 响应 |
 | `accountName` | 角色名 (可选) | 响应 |
