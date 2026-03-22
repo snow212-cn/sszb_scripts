@@ -8,6 +8,7 @@
   "accounts": [
     {
       "note": "账号备注",
+      "monitorListType": "friend",
       "authKey": "抓包获取的authKey",
       "roleID": "你的RoleID",
       "openID": "抓包获取的openID",
@@ -18,7 +19,8 @@
       "targets": [
         {
           "id": "要监控的目标ID",
-          "name": "目标备注名"
+          "name": "目标备注名",
+          "listType": "friend"
         }
       ]
     }

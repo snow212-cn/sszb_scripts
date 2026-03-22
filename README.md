@@ -127,14 +127,28 @@ msg_id=30001&msg={"openID":"79C08456AB664267ED5660282496C***","openKey":"3A62DB2
 | `bundleIdentifier` | 包名 |
 | `deviceID` | 设备 ID |
 
+### 监控列表类型（`monitorListType`，可选）
+
+用于指定账号的监控目标默认位于哪个列表。
+
+可选值：
+
+| 值 | 说明 |
+|---|---|
+| `friend` / `3` / `好友` | 从好友列表中查找目标 |
+| `follow` / `1` / `已关注` | 从已关注列表中查找目标 |
+
+不填时默认使用 `friend`，兼容旧配置。
+
 ### 监控目标（`targets` 数组，可选）
 
-用于 `sszb_monitor.py` 监控指定好友。
+用于 `sszb_monitor.py` 监控指定目标。
 
 | 参数 | 说明 |
 |---|---|
 | `id` | 目标角色 ID |
 | `name` | 备注名 |
+| `listType` | 可选。覆盖账号级 `monitorListType`，支持 `friend` / `follow`（也兼容 `3` / `1` 及中文写法） |
 
 ---
 

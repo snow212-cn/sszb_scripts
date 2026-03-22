@@ -22,6 +22,33 @@ except:
 # 在提供的样本中所有人status都是0(离线)。游戏中是 2，在线是1，请自行设置！
 # 自由战对应的 gameMode 数值。-1是无模式/离线，"1"是团战，"0"是自由战。
 FREE_BATTLE_MODE_ID = 0
+LIST_SOURCE_META = {
+    "friend": {
+        "follow_type": 3,
+        "label": "好友",
+        "summary_title": "好友列表概况"
+    },
+    "follow": {
+        "follow_type": 1,
+        "label": "已关注",
+        "summary_title": "已关注列表概况"
+    }
+}
+LIST_SOURCE_ALIASES = {
+    "3": "friend",
+    "friend": "friend",
+    "friends": "friend",
+    "mutual": "friend",
+    "mutual_friend": "friend",
+    "mutual_friends": "friend",
+    "好友": "friend",
+    "互关好友": "friend",
+    "1": "follow",
+    "follow": "follow",
+    "following": "follow",
+    "关注": "follow",
+    "已关注": "follow"
+}
 
 def send_notification(title, content):
     """通过青龙面板发送通知"""
@@ -93,6 +120,43 @@ def get_state_now(account, followType=3, startID=1, endID=20):
         return {}
     return data
 
+def normalize_list_source(value, default="friend"):
+    """将配置中的列表类型标准化为 friend/follow。"""
+    if value is None:
+        return default
+
+    if isinstance(value, int):
+        return LIST_SOURCE_ALIASES.get(str(value), default)
+
+    value_str = str(value).strip()
+    if not value_str:
+        return default
+
+    return LIST_SOURCE_ALIASES.get(value_str.lower(), LIST_SOURCE_ALIASES.get(value_str, default))
+
+def resolve_target_list_source(account, target):
+    """解析目标应从哪个列表中查找，目标配置优先于账号默认配置。"""
+    account_default = normalize_list_source(account.get('monitorListType'), "friend")
+    target_source = normalize_list_source(target.get('listType'), account_default)
+    return target_source, LIST_SOURCE_META[target_source]
+
+def find_target_index(data, target_id, target_name):
+    """在列表数据中查找目标下标，优先按 ID 匹配。"""
+    if not data:
+        return -1
+
+    role_ids = data.get('roleID', [])
+    target_id_str = str(target_id)
+    for i, role_id in enumerate(role_ids):
+        if str(role_id) == target_id_str:
+            return i
+
+    for i, info in enumerate(data.get('publicInfos', [])):
+        if info.get('name') == target_name:
+            return i
+
+    return -1
+
 def regroup(data):
     """重组json数据为以人为单位的列表"""
     if not data or 'roleID' not in data:
@@ -132,7 +196,7 @@ def format_target_detail(detail):
     
     return "\n".join(res)
 
-def present(data, file=sys.stdout):
+def present(data, file=sys.stdout, title="用户列表总览"):
     """呈现用户列表json数据"""
     if not data or 'roleID' not in data:
         return
@@ -142,7 +206,7 @@ def present(data, file=sys.stdout):
             return "无"
         return time.strftime('%Y-%m-%d', time.localtime(timestamp))
 
-    print("=" * 35, f"用户列表总览 (共 {len(data['roleID'])} 人)", "=" * 35, sep='\n', file=file)
+    print("=" * 35, f"{title} (共 {len(data['roleID'])} 人)", "=" * 35, sep='\n', file=file)
 
     for i in range(len(data['roleID'])):
         pid = data['roleID'][i]
@@ -297,29 +361,37 @@ def main():
             continue
 
         try:
-            # 获取当前好友列表/状态 (make_request 会自动处理 -73 并重连)
-            data = get_state_now(account)
-            if not data:
-                print(f"账号 {note} 获取数据为空，跳过。")
-                continue
+            required_sources = set()
+            for target in targets:
+                source_key, source_meta = resolve_target_list_source(account, target)
+                required_sources.add(source_key)
+                target['__source_key'] = source_key
+                target['__source_meta'] = source_meta
+
+            source_data_map = {}
+            for source_key in required_sources:
+                source_meta = LIST_SOURCE_META[source_key]
+                print(f"  > 正在拉取{source_meta['label']}列表...")
+                data = get_state_now(account, followType=source_meta['follow_type'])
+                if not data:
+                    print(f"  > {source_meta['label']}列表数据为空。")
+                    source_data_map[source_key] = {}
+                    continue
+                source_data_map[source_key] = data
 
             for target in targets:
                 target_id = target.get('id')
                 target_name = target.get('name')
+                source_key = target.get('__source_key', "friend")
+                source_meta = target.get('__source_meta', LIST_SOURCE_META[source_key])
+                data = source_data_map.get(source_key, {})
                 
                 if not target_id:
                     print(f"  目标配置缺失 ID，跳过。")
                     continue
-                print(f"  > 正在检查目标: {target_name} (ID: {target_id})")
+                print(f"  > 正在检查目标: {target_name} (ID: {target_id}, 列表: {source_meta['label']})")
 
-                target_idx = -1
-                if 'roleID' in data and target_id in data['roleID']:
-                    target_idx = data['roleID'].index(target_id)
-                elif 'publicInfos' in data:
-                    for i, info in enumerate(data['publicInfos']):
-                        if info.get('name') == target_name:
-                            target_idx = i
-                            break
+                target_idx = find_target_index(data, target_id, target_name)
                 
                 # 初始化当前状态 (即使不在列表)
                 current_status_code = 0
@@ -331,10 +403,11 @@ def main():
                     current_mode = data['gameMode'][target_idx]
                     current_status_desc = data['statusDesc'][target_idx]
                 else:
-                    print(f"    未在列表中找到目标: {target_name}。")
+                    print(f"    未在{source_meta['label']}列表中找到目标: {target_name}。")
 
-                state_file = os.path.join(os.path.dirname(__file__), f'monitor_state_{target_id}.json')
-                record_file = os.path.join(os.path.dirname(__file__), f'monitor_daily_records_{target_id}.csv')
+                state_suffix = "" if source_key == "friend" else f"_{source_key}"
+                state_file = os.path.join(os.path.dirname(__file__), f'monitor_state_{target_id}{state_suffix}.json')
+                record_file = os.path.join(os.path.dirname(__file__), f'monitor_daily_records_{target_id}{state_suffix}.csv')
 
                 try:
                     is_online_now = current_status_code > 0
@@ -352,13 +425,13 @@ def main():
                     
                     was_online = state.get('last_status', 0) > 0
                     title = ""
-                    msg = f"账号: {note}\n目标: {target_name}\n今日已玩自由战: {state['daily_count']} 局\n"
+                    msg = f"账号: {note}\n目标: {target_name}\n来源列表: {source_meta['label']}\n今日已玩自由战: {state['daily_count']} 局\n"
                     target_detail = {}
                     
                     if is_online_now and not was_online:
-                        title = f"你关注的 [{target_name}] 上线了！状态: {current_status_desc}"
+                        title = f"你{source_meta['label']}中的 [{target_name}] 上线了！状态: {current_status_desc}"
                     elif not is_online_now and was_online:
-                        title = f"你关注的 [{target_name}] 下线了！最终状态: {current_status_desc}"
+                        title = f"你{source_meta['label']}中的 [{target_name}] 下线了！最终状态: {current_status_desc}"
                         try:
                             target_detail = view_target(target_id, account)
                             save_daily_record(target_detail, state['daily_count'], record_file)
@@ -372,8 +445,8 @@ def main():
                         # 格式化详细情况
                         msg += "\n" + format_target_detail(target_detail) + "\n"
                         buf = io.StringIO()
-                        present(data, file=buf)
-                        msg += "\n" + "-"*20 + "\n好友列表概况:\n" + buf.getvalue()
+                        present(data, file=buf, title=source_meta['summary_title'])
+                        msg += "\n" + "-"*20 + f"\n{source_meta['summary_title']}:\n" + buf.getvalue()
                         
                         send_notification(title, msg)
                     
@@ -388,6 +461,9 @@ def main():
                     print(f"    处理目标 {target_name} 时发生错误: {e}")
                     import traceback
                     traceback.print_exc()
+                finally:
+                    target.pop('__source_key', None)
+                    target.pop('__source_meta', None)
 
         except FatalAuthError:
             print(f"!!!! 账号 {note} 遭遇严重认证错误，已跳过剩余监控任务 !!!!")
